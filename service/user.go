@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"time"
 
 	"github.com/polnoy/gin-cbot/common"
@@ -41,6 +42,15 @@ func (h *User) FindEmail(email string) (model.User, error) {
 
 // Create is create data
 func (h *User) Create(data model.User) error {
+	user := model.User{}
+	err := DbConnect.Use(collection).Find(bson.M{"email": data.Email}).One(&user)
+	if err != nil {
+		return err
+	}
+	if user.Email != "" {
+		return errors.New("Email " + data.Email + " already exists.")
+	}
+
 	data.Password = common.GeneratePasswordHash([]byte(data.Password))
 	data.CreatedTime = time.Now()
 	data.UpdatedTime = data.CreatedTime
@@ -50,6 +60,16 @@ func (h *User) Create(data model.User) error {
 // Update is update data
 func (h *User) Update(_id string, data model.User) error {
 	objectID := bson.ObjectIdHex(_id)
+
+	user := model.User{}
+	err := DbConnect.Use(collection).Find(bson.M{"_id": bson.M{"$ne": objectID}, "email": data.Email}).One(&user)
+	if err != nil && err.Error() != "not found" {
+		return err
+	}
+	if user.Email != "" {
+		return errors.New("Email " + data.Email + " already exists.")
+	}
+
 	newData := bson.M{
 		"$set": bson.M{
 			"name":         data.Name,
