@@ -1,48 +1,46 @@
 package common
 
 import (
+	"fmt"
 	"os"
+	"time"
 
-	mgo "gopkg.in/mgo.v2"
+	"github.com/Kamva/mgm/v2"
+	"github.com/polnoy/gin-cbot/model"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"gopkg.in/mgo.v2/bson"
 )
 
-// DBConnect defines the connection structure
-type DBConnect struct {
-	session *mgo.Session
-}
-
-// ConnectDB is setup db
-func ConnectDB() (conn *DBConnect) {
+// ConnectDb defined connnect database
+func ConnectDb() {
 	host := os.Getenv("MONGO_HOST")
 	if host == "" {
-		host = "localhost:27017"
+		host = "mongodb://localhost:27017"
 	}
 
-	session, err := mgo.Dial(host)
+	db := os.Getenv("MONGO_DB_NAME")
+	if db == "" {
+		db = "gin-cbot"
+	}
+
+	// Setup mgm default config
+	err := mgm.SetDefaultConfig(&mgm.Config{CtxTimeout: 12 * time.Second}, db, options.Client().ApplyURI(host))
 	if err != nil {
-		panic(err)
+		fmt.Println("Connect database error: ", err)
 	}
 
-	session.SetMode(mgo.Monotonic, true)
-	conn = &DBConnect{session}
-
-	return conn
-}
-
-// Use handles connect to a certain collection
-func (conn *DBConnect) Use(tbName string) (collection *mgo.Collection) {
-	dbName := os.Getenv("MONGO_DB_NAME")
-	if dbName == "" {
-		dbName = "gin-cbot"
+	// Create user indexes
+	user := mgm.Coll(&model.User{})
+	if _, err := user.Indexes().CreateMany(
+		mgm.Ctx(),
+		[]mongo.IndexModel{
+			{
+				Keys:    bson.M{"email": 1},
+				Options: options.Index().SetUnique(true),
+			},
+		},
+	); err != nil {
+		fmt.Println("User index error: ", err)
 	}
-
-	// This returns method that interacts with a specific collection and table
-	return conn.session.DB(dbName).C(tbName)
-}
-
-// Close handles closing a database connection
-func (conn *DBConnect) Close() {
-	// This closes the connection
-	conn.session.Close()
-	return
 }

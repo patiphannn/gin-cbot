@@ -2,8 +2,9 @@ package service
 
 import (
 	"errors"
-	"time"
 
+	"github.com/Kamva/mgm/v2"
+	"github.com/Kamva/mgm/v2/operator"
 	"github.com/polnoy/gin-cbot/common"
 	"github.com/polnoy/gin-cbot/model"
 	"gopkg.in/mgo.v2/bson"
@@ -12,78 +13,74 @@ import (
 // User is all user services
 type User struct{}
 
-// DbConnect is connection database
-var DbConnect = common.ConnectDB()
-
 // collection is mongo collection name
 const collection = "users"
 
 // Gets is find all
 func (h *User) Gets() ([]model.User, error) {
-	data := []model.User{}
-	err := DbConnect.Use(collection).Find(bson.M{}).All(&data)
-	return data, err
+	result := []model.User{}
+	err := mgm.Coll(&model.User{}).SimpleFind(&result, bson.M{})
+
+	return result, err
 }
 
 // Get is find once
-func (h *User) Get(_id string) (model.User, error) {
-	data := model.User{}
-	objectID := bson.ObjectIdHex(_id)
-	err := DbConnect.Use(collection).FindId(objectID).One(&data)
-	return data, err
+func (h *User) Get(_id string) (*model.User, error) {
+	result := &model.User{}
+	err := mgm.Coll(result).FindByID(_id, result)
+	return result, err
 }
 
 // FindEmail is find once with email
-func (h *User) FindEmail(email string) (model.User, error) {
-	data := model.User{}
-	err := DbConnect.Use(collection).Find(bson.M{"email": email}).One(&data)
-	return data, err
+func (h *User) FindEmail(email string) (*model.User, error) {
+	result := &model.User{}
+	err := mgm.Coll(result).First(bson.M{"email": email}, result)
+	return result, err
 }
 
 // Create is create data
 func (h *User) Create(data model.User) error {
-	user := model.User{}
-	err := DbConnect.Use(collection).Find(bson.M{"email": data.Email}).One(&user)
-	if err != nil {
-		return err
-	}
+	user, _ := h.FindEmail(data.Email)
 	if user.Email != "" {
 		return errors.New("Email " + data.Email + " already exists.")
 	}
 
 	data.Password = common.GeneratePasswordHash([]byte(data.Password))
-	data.CreatedTime = time.Now()
-	data.UpdatedTime = data.CreatedTime
-	return DbConnect.Use(collection).Insert(data)
+	return mgm.Coll(&data).Create(&data)
 }
 
 // Update is update data
 func (h *User) Update(_id string, data model.User) error {
-	objectID := bson.ObjectIdHex(_id)
+	dup := &model.User{}
+	err := mgm.Coll(dup).First(bson.M{"_id": bson.M{operator.Ne: _id}, "email": data.Email}, dup)
 
-	user := model.User{}
-	err := DbConnect.Use(collection).Find(bson.M{"_id": bson.M{"$ne": objectID}, "email": data.Email}).One(&user)
-	if err != nil && err.Error() != "not found" {
-		return err
-	}
-	if user.Email != "" {
+	if dup.Email != "" {
 		return errors.New("Email " + data.Email + " already exists.")
 	}
 
-	newData := bson.M{
-		"$set": bson.M{
-			"name":         data.Name,
-			"email":        data.Email,
-			"password":     common.GeneratePasswordHash([]byte(data.Password)),
-			"is_verified":  data.IsVerified,
-			"updated_time": time.Now(),
-		},
+	user, err := h.Get(_id)
+	if err != nil {
+		return errors.New(err.Error())
 	}
-	return DbConnect.Use(collection).UpdateId(objectID, newData)
+
+	if data.Name != "" {
+		user.Name = data.Name
+	}
+	if data.Email != "" {
+		user.Email = data.Email
+	}
+	if data.Password != "" {
+		user.Password = common.GeneratePasswordHash([]byte(data.Password))
+	}
+
+	return mgm.Coll(user).Update(user)
 }
 
 // DeleteByID is delete by id
 func (h *User) DeleteByID(_id string) error {
-	objectID := bson.ObjectIdHex(_id)
-	return DbConnect.Use(collection).RemoveId(objectID)
+	data, err := h.Get(_id)
+	if err != nil {
+		return errors.New(err.Error())
+	}
+	return mgm.Coll(data).Delete(data)
 }

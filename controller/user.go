@@ -47,17 +47,18 @@ func (h *User) Get(c *gin.Context) {
 // Create is create data
 func (h *User) Create(c *gin.Context) {
 	service := new(service.User)
+
+	// JSON
 	data := model.User{}
 	err := c.ShouldBindJSON(&data)
-
 	if err != nil {
 		log.Println("error user Create", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
 
+	// Create
 	err = service.Create(data)
-
 	if err != nil {
 		log.Println("error user Create", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
@@ -74,17 +75,13 @@ func (h *User) Update(c *gin.Context) {
 	service := new(service.User)
 	_id := c.Param("_id")
 	data := model.User{}
-	err := c.ShouldBindJSON(&data)
-
-	if err != nil {
+	if err := c.ShouldBindJSON(&data); err != nil {
 		log.Println("error user Update", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
 
-	err = service.Update(_id, data)
-
-	if err != nil {
+	if err := service.Update(_id, data); err != nil {
 		log.Println("error user Update", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
