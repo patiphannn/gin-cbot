@@ -44,7 +44,7 @@ func (h *User) FindEmail(email string) (model.User, error) {
 func (h *User) Create(data model.User) error {
 	user := model.User{}
 	err := DbConnect.Use(collection).Find(bson.M{"email": data.Email}).One(&user)
-	if err != nil {
+	if err != nil && err.Error() != "not found" {
 		return err
 	}
 	if user.Email != "" {

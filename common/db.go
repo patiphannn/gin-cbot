@@ -1,8 +1,7 @@
 package common
 
 import (
-	"os"
-
+	"github.com/spf13/viper"
 	mgo "gopkg.in/mgo.v2"
 )
 
@@ -11,9 +10,22 @@ type DBConnect struct {
 	session *mgo.Session
 }
 
+// DbName is database name
+var DbName = "gin-cbot"
+
+func init() {
+	viper.SetConfigFile(".env")
+	viper.ReadInConfig()
+
+	db := viper.GetString("MONGO_DB_NAME")
+	if db != "" {
+		DbName = db
+	}
+}
+
 // ConnectDB is setup db
 func ConnectDB() (conn *DBConnect) {
-	host := os.Getenv("MONGO_HOST")
+	host := viper.GetString("MONGO_HOST")
 	if host == "" {
 		host = "localhost:27017"
 	}
@@ -26,18 +38,22 @@ func ConnectDB() (conn *DBConnect) {
 	session.SetMode(mgo.Monotonic, true)
 	conn = &DBConnect{session}
 
+	// Create user index
+	idx := mgo.Index{
+		Key:    []string{"email"},
+		Unique: true,
+	}
+	if err := session.DB(DbName).C("users").EnsureIndex(idx); err != nil {
+		panic(err)
+	}
+
 	return conn
 }
 
 // Use handles connect to a certain collection
-func (conn *DBConnect) Use(tbName string) (collection *mgo.Collection) {
-	dbName := os.Getenv("MONGO_DB_NAME")
-	if dbName == "" {
-		dbName = "gin-cbot"
-	}
-
+func (conn *DBConnect) Use(collName string) (collection *mgo.Collection) {
 	// This returns method that interacts with a specific collection and table
-	return conn.session.DB(dbName).C(tbName)
+	return conn.session.DB(DbName).C(collName)
 }
 
 // Close handles closing a database connection
