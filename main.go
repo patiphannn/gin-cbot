@@ -15,6 +15,9 @@ func main() {
 		c.String(http.StatusOK, "pong")
 	})
 
+	// Auth router
+	r = router.Auth(r)
+
 	// User router
 	r = router.User(r)
 

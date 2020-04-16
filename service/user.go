@@ -12,16 +12,13 @@ import (
 // User is all user services
 type User struct{}
 
-// DbConnect is connection database
-var DbConnect = common.ConnectDB()
-
-// collection is mongo collection name
-const collection = "users"
+// userColl is mongo collection name
+const userColl = "users"
 
 // Gets is find all
 func (h *User) Gets() ([]model.User, error) {
 	data := []model.User{}
-	err := DbConnect.Use(collection).Find(bson.M{}).All(&data)
+	err := DbConnect.Use(userColl).Find(bson.M{}).All(&data)
 	return data, err
 }
 
@@ -29,21 +26,21 @@ func (h *User) Gets() ([]model.User, error) {
 func (h *User) Get(_id string) (model.User, error) {
 	data := model.User{}
 	objectID := bson.ObjectIdHex(_id)
-	err := DbConnect.Use(collection).FindId(objectID).One(&data)
+	err := DbConnect.Use(userColl).FindId(objectID).One(&data)
 	return data, err
 }
 
 // FindEmail is find once with email
 func (h *User) FindEmail(email string) (model.User, error) {
 	data := model.User{}
-	err := DbConnect.Use(collection).Find(bson.M{"email": email}).One(&data)
+	err := DbConnect.Use(userColl).Find(bson.M{"email": email}).One(&data)
 	return data, err
 }
 
 // Create is create data
 func (h *User) Create(data model.User) error {
 	user := model.User{}
-	err := DbConnect.Use(collection).Find(bson.M{"email": data.Email}).One(&user)
+	err := DbConnect.Use(userColl).Find(bson.M{"email": data.Email}).One(&user)
 	if err != nil && err.Error() != "not found" {
 		return err
 	}
@@ -54,7 +51,7 @@ func (h *User) Create(data model.User) error {
 	data.Password = common.GeneratePasswordHash([]byte(data.Password))
 	data.CreatedTime = time.Now()
 	data.UpdatedTime = data.CreatedTime
-	return DbConnect.Use(collection).Insert(data)
+	return DbConnect.Use(userColl).Insert(data)
 }
 
 // Update is update data
@@ -62,7 +59,7 @@ func (h *User) Update(_id string, data model.User) error {
 	objectID := bson.ObjectIdHex(_id)
 
 	user := model.User{}
-	err := DbConnect.Use(collection).Find(bson.M{"_id": bson.M{"$ne": objectID}, "email": data.Email}).One(&user)
+	err := DbConnect.Use(userColl).Find(bson.M{"_id": bson.M{"$ne": objectID}, "email": data.Email}).One(&user)
 	if err != nil && err.Error() != "not found" {
 		return err
 	}
@@ -79,11 +76,11 @@ func (h *User) Update(_id string, data model.User) error {
 			"updated_time": time.Now(),
 		},
 	}
-	return DbConnect.Use(collection).UpdateId(objectID, newData)
+	return DbConnect.Use(userColl).UpdateId(objectID, newData)
 }
 
 // DeleteByID is delete by id
 func (h *User) DeleteByID(_id string) error {
 	objectID := bson.ObjectIdHex(_id)
-	return DbConnect.Use(collection).RemoveId(objectID)
+	return DbConnect.Use(userColl).RemoveId(objectID)
 }
